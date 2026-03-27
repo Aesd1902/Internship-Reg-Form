@@ -1,0 +1,5 @@
+{
+  "name": "Cognito Registration Form",
+  "description": "Internship, training, and placement support registration form with local SQL storage.",
+  "requestFramePermissions": []
+}
