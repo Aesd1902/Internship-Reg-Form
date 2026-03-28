@@ -17,7 +17,9 @@ import {
   CheckCircle2, 
   AlertCircle,
   PhoneCall,
-  Menu
+  Menu,
+  FileText,
+  Upload
 } from 'lucide-react';
 import { cn } from './lib/utils';
 
@@ -66,17 +68,12 @@ const HIRING_ROLES = [
 const Header = () => (
   <header className="bg-white border-b border-gray-100 sticky top-0 z-50 px-4 py-3 md:px-8 flex items-center justify-between">
     <div className="flex items-center gap-3">
-      <div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-        C
-      </div>
-      <div>
-        <h1 className="text-blue-900 font-black text-xl leading-tight tracking-tighter uppercase">
-          Cognito Insights
-        </h1>
-        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-widest">
-          Solutions Pvt Ltd
-        </p>
-      </div>
+      <img 
+        src="/logo.jpg" 
+        alt="Cognito Insights Logo" 
+        className="h-12 w-auto object-contain"
+        referrerPolicy="no-referrer"
+      />
     </div>
     
     <div className="hidden md:flex items-center gap-4">
@@ -171,13 +168,12 @@ const Footer = () => (
     <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
       <div>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-bold text-xl">
-            C
-          </div>
-          <div>
-            <h2 className="font-bold text-lg uppercase tracking-tight">Cognito Insights</h2>
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Solutions Pvt Ltd</p>
-          </div>
+          <img 
+            src="/logo.jpg" 
+            alt="Cognito Insights Logo" 
+            className="h-14 w-auto object-contain invert grayscale brightness-200"
+            referrerPolicy="no-referrer"
+          />
         </div>
         <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm">
           We are a leading technology solutions provider dedicated to empowering businesses through innovation and exceptional talent acquisition.
@@ -246,10 +242,23 @@ const Footer = () => (
       </div>
     </div>
     
-    <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/10 text-center">
-      <p className="text-gray-500 text-xs">
-        © 2026 Cognito Insights Solutions Pvt Ltd. Crafted with excellence.
-      </p>
+    <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="flex items-center gap-3">
+        <img 
+          src="/logo.jpg" 
+          alt="Cognito Insights Logo" 
+          className="h-8 w-auto object-contain invert grayscale opacity-70"
+          referrerPolicy="no-referrer"
+        />
+        <p className="text-gray-500 text-xs">
+          © 2026 Cognito Insights Solutions Pvt Ltd. Crafted with excellence.
+        </p>
+      </div>
+      <div className="flex gap-6">
+        {["Privacy Policy", "Terms of Service", "Cookie Policy"].map((item) => (
+          <a key={item} href="#" className="text-gray-500 hover:text-white text-xs transition-colors">{item}</a>
+        ))}
+      </div>
     </div>
   </footer>
 );
@@ -271,13 +280,31 @@ export default function App() {
     preferredJobRole: '',
     agreed: false
   });
+  const [cvFile, setCvFile] = useState<File | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as any;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
+    if (type === 'file') {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          setError("File size exceeds 5MB limit.");
+          return;
+        }
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (!['pdf', 'doc', 'docx'].includes(ext || '')) {
+          setError("Only PDF, DOC, and DOCX files are allowed.");
+          return;
+        }
+        setCvFile(file);
+        setError(null);
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -288,22 +315,35 @@ export default function App() {
       return;
     }
 
+    if (!cvFile) {
+      setError("Please upload your CV.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
+      const data = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        data.append(key, value.toString());
+      });
+      data.append('cv', cvFile);
+
       const response = await fetch('/api/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: data
       });
 
-      if (!response.ok) throw new Error('Failed to register');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.errors?.[0]?.msg || 'Failed to register');
+      }
       
       setSubmitted(true);
     } catch (err: any) {
       console.error("Submission error:", err);
-      setError("Failed to register. Please try again.");
+      setError(err.message || "Failed to register. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -508,6 +548,37 @@ export default function App() {
                           <option key={role} value={role}>{role}</option>
                         ))}
                       </select>
+                    </div>
+                    
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upload CV (PDF/DOCX, Max 5MB)</label>
+                      <div className="relative">
+                        <input 
+                          type="file" 
+                          name="cv"
+                          onChange={handleInputChange}
+                          accept=".pdf,.doc,.docx"
+                          className="hidden"
+                          id="cv-upload"
+                        />
+                        <label 
+                          htmlFor="cv-upload"
+                          className="flex items-center justify-center gap-3 w-full px-5 py-8 bg-blue-50/30 border-2 border-dashed border-blue-100 rounded-3xl cursor-pointer hover:bg-blue-50/50 transition-all group"
+                        >
+                          {cvFile ? (
+                            <div className="flex items-center gap-3 text-blue-900 font-bold">
+                              <FileText className="text-blue-500" />
+                              {cvFile.name}
+                              <span className="text-xs text-gray-400 font-normal">({(cvFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-500">
+                              <Upload size={32} />
+                              <span className="text-sm font-bold uppercase tracking-widest">Click to upload your CV</span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </AccordionItem>

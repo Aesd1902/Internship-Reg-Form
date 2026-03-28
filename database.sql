@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS registrations (
     yearOfPassing TEXT,
     selectedCourse TEXT NOT NULL,
     preferredJobRole TEXT,
+    cvPath TEXT,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
